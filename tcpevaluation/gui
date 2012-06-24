@@ -1,0 +1,73 @@
+### simple (and poor) GUI for tcp_bench.sh in interactive mode
+
+
+### functions
+
+# ask a value to the user
+# usage:
+#   ask PROMPT TYPE VARNAME
+# where TYPE := word | word_nonempty | int | u_int | int_gt0 | byte | probability | IPv4
+ask () {
+    local prompt="$1"
+    local type="$2"
+    local var="$3"
+    local retval=1
+    local value
+    # ask to the user until a valid value is given or Ctrl-C is pressed
+    while read -p "${prompt}: " "$var"; do
+        # input value
+        eval value="\"\${$var}\"" # redirection
+        # check type validity
+        if eval is_"$type" '"$value"' 2> /dev/null; then
+            # valid
+            retval=0
+            break # quit loop
+        else
+            # ask again
+            echo -n "Invalid value! "
+        fi
+    done
+    # exit value
+    return "$retval"
+}
+
+
+### main
+
+# read input
+ask 'Server IP' IPv4 host &&
+is_connected "$host" ||
+    E_FATAL "host $host unreachable!"
+ask 'User (server side, empty for the current one)' word user &&
+ask 'Path (server side, empty for the current one)' word path &&
+complete_options &&
+check_ssh &&
+ask 'Iterations (>= 1)' int_gt0 iterations &&
+if confirm 'Customize default values on client side (time, interval, window, congestion algorithm and parallel connections)'
+then
+    ask '- time (s)' int_gt0 time &&
+    ask '- interval (s)' int_gt0 interval &&
+    ask '- window (value[KM])' word_nonempty window &&
+    ask '- congestion algorithm (empty for the current one)' word congestion &&
+    ask '- parallel (>= 1)' int_gt0 parallel
+fi &&
+if confirm 'Use dummynet instead of netem'; then
+    net_emu='-D'
+else
+    net_emu='-N'
+fi &&
+ask 'Bandwidth (kbit/s)' int_gt0 bandwidth &&
+if confirm 'Customize default values on server side (delay, loss and queue)'; then
+    ask '- delay (ms)' u_int delay &&
+    ask '- loss (float in [0-1])' probability loss &&
+    ask '- queue (>= 0)' u_int queue
+fi &&
+ask 'Test name (empty for default)' word folder ||
+    exit 1
+
+# run script again
+complete_options
+cd .. &&
+exec ./tcpeval.sh $iterations_opt $host_opt $path_opt $user_opt $time_opt \
+     $interval_opt $window_opt $congestion_opt $parallel_opt \
+     $net_emu $delay_opt $bandwidth_opt $loss_opt $queue_opt $folder_opt
