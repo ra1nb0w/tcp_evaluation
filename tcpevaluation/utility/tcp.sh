@@ -40,8 +40,8 @@ tcp_tuning () {
     local sack="$1" # 0 or 1 (default: 1)
     local dsack="$2" # 0 or 1 (default: 1)
     # prevent wrong assignments, replacing them with default values
-    [ "$sack" = 1 ] || sack=1
-    [ "$dsack" = 1 ] || dsack=1
+    [ "$sack" = 0 ] || sack=1
+    [ "$dsack" = 0 ] || dsack=1
 
     # turn off the route metrics for repeated connections
     # disable slow start threshold (ssthresh)

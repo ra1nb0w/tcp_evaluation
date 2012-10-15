@@ -1,0 +1,132 @@
+﻿TCPEVALUATION
+
+Tcpevaluation is a tool to measure the throughput in TCP layer between two
+hosts, monitoring the evolution of the congestion window (cwnd) and the slow
+start threshold (ssthresh) in TCP.
+It can automatically load Linux kernel modules which are missing, supporting
+different TCP congestion avoidance algorithms (e.g., NewReno, Cubic, Westwood),
+and runs:
+- dummynet, in order to emulate a bottleneck between the two hosts, choosing
+bandwidth, delay, loss and queue values;
+- tcp_probe, for reading cwnd and ssthresh values on the client side;
+- iperf, for generating TCP traffic and measuring the throughput;
+- gnuplot, for plotting graphs as output.
+
+
+Requirements:
+
+- two connected hosts;
+- same GNU/Linux distribution (tested Linux kernel version: 2.6.32);
+- for different versions tcp_probe and dummynet modules must be compiled
+  (they are in path tcpevaluation/utility/modules);
+- dummynet binaries installed on the server side;
+- sudo enabled without asking password for the current user on both hosts;
+- OpenSSH client and server on both hosts;
+- iperf on both hosts;
+- gnuplot on the client host (not mandatory, but recommended);
+- tcpevaluation copied on both hosts, preferably in the same path.
+
+
+Help scripts:
+
+- config.sh can be used on both sides to set up a network interface and
+OpenSSH;
+- benchmarks.sh is a tutorial provided in order to execute tcpevaluation
+multiple times in different settings in a non-interactive mode.
+
+
+TCP congestion avoidance algorithms
+
+* Get the list of algorithms supported by default or manually loaded:
+    cat /proc/sys/net/ipv4/tcp_available_congestion_control
+(default for Linux 2.6.32: cubic and reno)
+
+* Get the list of available and allowed algorithms:
+    cat /proc/sys/net/ipv4/tcp_allowed_congestion_control
+(default for Linux 2.6.32: cubic and reno)
+
+Note: reno is the implementation of TCP NewReno and not of the original Reno.
+
+* Get the default one:
+    cat /proc/sys/net/ipv4/tcp_congestion_control
+(default for Linux 2.6.32: cubic)
+
+* Get the list of loadable kernel modules related to TCP algorithms:
+    /sbin/modprobe -l 'tcp_'
+They are automatically loaded by tcpevaluation, if needed. For instance,
+for westwood the module tcp_westwood.ko is loaded.
+
+
+MAIN SCRIPT (tcpeval.sh)
+
+Once network interfaces and OpenSSH are set up on both sides, this tool can
+be used on client side executing the script tcpeval.sh in the directory
+tcpevaluation. The server host will be automatically configured with SSH.
+
+There are two alternatives: 
+
+1- Interactive mode
+
+./tcpeval.sh
+
+
+2- Non-interactive mode
+
+./tcpeval.sh -h SERVER_IP -u SERVER_USER -p SERVER_PATH -b BANDWIDTH -t TIME \
+    -D -d DELAY -l LOSS -q QUEUE -Z TCP_CONGESTION -c ITERATIONS -F FOLDER_NAME
+
+where:
+
+- SERVER_IP is the IPv4 address of the server. It is mandatory;
+- BANDWIDTH is the bandwidth in kbit/s of the bottleneck. It is mandatory;
+
+- SERVER_USER is the username used on server side. It is not mandatory if it is
+the same on both sides;
+- SERVER_PATH is the path of tcpevaluation on server side. It is not mandatory
+if it is the same on both sides;
+- TIME is the length in seconds of a single execution of iperf. It is not
+mandatory (default: 30 seconds);
+- -D refers to dummynet, used by default. Netem is available as well, using -N,
+but it has not been tested very much and does not support queues;
+- DELAY is the delay of the bottleneck in milliseconds. It is not mandatory
+(default: 0 ms);
+- LOSS is the ratio of losses in [0,1] range. It is not mandatory (default: 0);
+- QUEUE is the size of the queue in number of IP packets. It is not mandatory
+(default: 0);
+- TCP_CONGESTION is the TCP congestion avoidance algorithm used by iperf. It is
+not mandatory (default: the current one);
+- ITERATIONS is the number of iterations to do for the test. It is not
+mandatory (default: 1);
+- FOLDER_NAME of the output.
+
+
+Examples
+
+Server IPv4: 192.168.1.1
+Client IPv4: 192.168.1.2
+same user and path on both hosts
+using dummynet (default)
+
+* Bandwidth 10 Mbit/s = 10240 Kbit/s - only mandatory argument (delay: 0 ms,
+    loss: 0, queue: 0, TCP congestion avoidance algorithm: current)
+./tcpeval.sh -h 192.168.1.1 -b 10240
+
+* Bandwidth 1 Mbit/s and delay 10 ms (loss and queue: 0, TCP alg.: current)
+./tcpeval.sh -h 192.168.1.1 -b 1024 -d 10
+
+* Bandwidth 5 Mbit/s and loss 2% (delay and queue: 0, TCP alg.: current)
+./tcpeval.sh -h 192.168.1.1 -b 5120 -l 0.02
+
+* Bandwidth 10 Mbit/s, delay 20 ms and queue 200 (loss: 0, TCP alg.: current)
+./tcpeval.sh -h 192.168.1.1 -b 10240 -d 20 -q 200
+
+* Bandwidth 10 Mbit/s, loss 1% and TCP NewReno (delay and queue: 0)
+./tcpeval.sh -h 192.168.1.1 -b 10240 -l 0.01 -Z reno
+
+* Bandwidth 10 Mbit/s, delay 50 ms, queue 500, TCP Cubic (loss: 0)
+./tcpeval.sh -h 192.168.1.1 -b 10240 -d 50 -q 500 -Z cubic
+
+
+For advanced options:
+
+./tcpeval.sh -h
